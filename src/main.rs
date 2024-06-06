@@ -1,17 +1,19 @@
 mod enemies;
 mod characters;
+mod battle;
+mod input;
 
 use rand::Rng;
 use enemies::Enemy;
 use characters::Character;
+use input::read_string;
+use battle::battle;
+use rodio::{Decoder, OutputStream, Sink};
+use std::io::Cursor;
+use std::thread;
+use std::time::Duration;
 
-fn read_string() -> String {
-    let mut input = String::new();
-    std::io::stdin()
-        .read_line(&mut input)
-        .expect("can not read user input");
-    input
-}
+const BATTLE_THEME: &'static [u8] = include_bytes!("music/battle_theme.mp3");
 
 fn main() {
     let mut rng = rand::thread_rng();
@@ -23,7 +25,7 @@ fn main() {
         5, 
         5, 
         0, 
-        2, 
+        10, 
         0, 
         1, 
         0));
@@ -46,4 +48,24 @@ fn main() {
     
     println!("Well your name is {}. Your enemy will be: {}", character.name, enemy.name);
 
+    let music_handle = thread::spawn(|| {
+        play_battle_theme();
+    });
+
+    battle(character, enemy);
+
+    music_handle.join().unwrap();
+}
+
+fn play_battle_theme() {
+    let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
+    let sink = rodio::Sink::try_new(&stream_handle).unwrap();
+
+    loop {
+        let cursor = std::io::Cursor::new(BATTLE_THEME);
+        let source = rodio::Decoder::new(cursor).unwrap();
+        sink.append(source);
+        sink.sleep_until_end();
+        thread::sleep(Duration::from_secs(1));
+    }
 }
